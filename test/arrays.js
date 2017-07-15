@@ -2,12 +2,12 @@
 
 var chai = require('chai')
 var chaiAsPromised = require('chai-as-promised')
-var parse = require('./helpers/parse')
+var parse = require('./helpers/parse').parse
 
 chai.use(chaiAsPromised)
 chai.should()
 
-describe ('Nodejs array functions', function () {
+describe ('PHP array functions', function () {
   it ('arr_keys', function () {
     var template =
       '<component>' +
@@ -17,7 +17,7 @@ describe ('Nodejs array functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template, {a: 4, b: 5}).should.equal('0,1,2,3,4,5,35,a,t,')
+    return parse(template, {a: 4, b: 5}).should.eventually.equal('0,1,2,3,4,5,35,a,t,')
   })
 
   it ('arr_contain positive', function () {
@@ -29,7 +29,7 @@ describe ('Nodejs array functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('found')
+    return parse(template).should.eventually.equal('found')
   })
 
   it ('arr_contain negative', function () {
@@ -41,7 +41,7 @@ describe ('Nodejs array functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('')
+    return parse(template).should.eventually.equal('')
   })
 
   it ('arr_values', function () {
@@ -53,7 +53,7 @@ describe ('Nodejs array functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template).should.equal('1,2,5,str,7,6,3,')
+    return parse(template).should.eventually.equal('1,2,5,str,7,6,3,')
   })
 
   it ('arr_len equal zero', function () {
@@ -63,7 +63,7 @@ describe ('Nodejs array functions', function () {
       '{ $result }' +
       '</component>'
 
-    return parse(template).should.equal('0')
+    return parse(template).should.eventually.equal('0')
   })
 
   it ('arr_len not equal zero', function () {
@@ -73,7 +73,7 @@ describe ('Nodejs array functions', function () {
       '{ $result }' +
       '</component>'
 
-    return parse(template).should.equal('7')
+    return parse(template).should.eventually.equal('7')
   })
 
   it ('arr_push', function () {
@@ -85,7 +85,7 @@ describe ('Nodejs array functions', function () {
       '{ $a[6] }' +
       '</component>'
 
-    return parse(template).should.equal('87')
+    return parse(template).should.eventually.equal('87')
   })
 
   it ('arr_unshift', function () {
@@ -97,7 +97,7 @@ describe ('Nodejs array functions', function () {
       '{ $a[0] }' +
       '</component>'
 
-    return parse(template).should.equal('810')
+    return parse(template).should.eventually.equal('810')
   })
 
   it ('arr_pop', function () {
@@ -108,7 +108,7 @@ describe ('Nodejs array functions', function () {
       '{ arr_len($a) }' +
       '</component>'
 
-    return parse(template).should.equal('76')
+    return parse(template).should.eventually.equal('76')
   })
 
   it ('arr_shift', function () {
@@ -119,7 +119,7 @@ describe ('Nodejs array functions', function () {
       '{ arr_len($a) }' +
       '</component>'
 
-    return parse(template).should.equal('16')
+    return parse(template).should.eventually.equal('16')
   })
 
   it ('arr_rand', function () {
@@ -137,7 +137,7 @@ describe ('Nodejs array functions', function () {
       '</switch>' +
       '</component>'
 
-    return parse(template).should.equal('contain')
+    return parse(template).should.eventually.equal('contain')
   })
 
   it ('arr_slice', function () {
@@ -151,7 +151,7 @@ describe ('Nodejs array functions', function () {
       '{ arr_len($a) }' +
       '</component>'
 
-    return parse(template).should.equal('4,5,6,8')
+    return parse(template).should.eventually.equal('4,5,6,8')
   })
 
   it ('arr_splice', function () {
@@ -168,7 +168,7 @@ describe ('Nodejs array functions', function () {
       '</ for-each>' +
       '</component>'
 
-    return parse(template).should.equal('4,5,6,-1,2,3,1,2,3,4,7,8,')
+    return parse(template).should.eventually.equal('4,5,6,-1,2,3,1,2,3,4,7,8,')
   })
 
   it ('arr_pad positive', function () {
@@ -178,7 +178,7 @@ describe ('Nodejs array functions', function () {
       '{ $item },' +
       '< /for-each></component>'
 
-    return parse(template).should.equal('1,2,3,9,9,9,9,')
+    return parse(template).should.eventually.equal('1,2,3,9,9,9,9,')
   })
 
   it ('arr_pad negative', function () {
@@ -190,7 +190,7 @@ describe ('Nodejs array functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template).should.equal('9,9,9,9,1,2,3,')
+    return parse(template).should.eventually.equal('9,9,9,9,1,2,3,')
   })
 
   it ('arr_pad keep origin', function () {
@@ -202,7 +202,7 @@ describe ('Nodejs array functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template).should.equal('1,2,3,')
+    return parse(template).should.eventually.equal('1,2,3,')
   })
 
   it ('arr_pad keep origin', function () {
@@ -214,7 +214,7 @@ describe ('Nodejs array functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template).should.equal('1,2,3,')
+    return parse(template).should.eventually.equal('1,2,3,')
   })
 
   it ('arr_reverse', function () {
@@ -226,7 +226,7 @@ describe ('Nodejs array functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template).should.equal('3,2,1,')
+    return parse(template).should.eventually.equal('3,2,1,')
   })
 
   it ('arr_unique', function () {
@@ -238,7 +238,7 @@ describe ('Nodejs array functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template).should.equal('1,2,3,4,5,')
+    return parse(template).should.eventually.equal('1,2,3,4,5,')
   })
 
   it ('arr_sort', function () {
@@ -255,7 +255,7 @@ describe ('Nodejs array functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template).should.equal('1,1,2,2,2,3,3,4,5,-1,2,3,2,1,4,5,3,2,')
+    return parse(template).should.eventually.equal('1,1,2,2,2,3,3,4,5,-1,2,3,2,1,4,5,3,2,')
   })
 
   it ('arr_sort_reverse', function () {
@@ -272,7 +272,7 @@ describe ('Nodejs array functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template).should.equal('5,4,3,3,2,2,2,1,1,-1,2,3,2,1,4,5,3,2,')
+    return parse(template).should.eventually.equal('5,4,3,3,2,2,2,1,1,-1,2,3,2,1,4,5,3,2,')
   })
 
   it ('arr_key', function () {
@@ -282,7 +282,7 @@ describe ('Nodejs array functions', function () {
       '{ arr_key($origin, 3) }' +
       '</component>'
 
-    return parse(template).should.equal('f')
+    return parse(template).should.eventually.equal('f')
   })
 
   it ('arr_join', function () {
@@ -292,6 +292,6 @@ describe ('Nodejs array functions', function () {
       '{ arr_join($arr, " ") }' +
       '</component>'
 
-    return parse(template).should.equal('1 2 3 4 5 6 7')
+    return parse(template).should.eventually.equal('1 2 3 4 5 6 7')
   })
 })

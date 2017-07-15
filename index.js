@@ -1,27 +1,45 @@
-var path = require('path')
-var parser = require('gutt')
 var logicHandler = require('./logic-handler')
+var escapeString = require('./escape-string')
+var Attr = require('gutt/tokens/attr')
 var Tag = require('gutt/tokens/tag')
-var treeToString = require('./tree-to-string')
 var reservedTags = [
-  'apply-attribute',
+  'param',
   'attribute',
+  'apply-attribute',
   'if',
+  'apply-if',
   'for-each',
+  'apply-for-each',
   'switch',
+  'apply-switch',
   'case',
-  'default'
+  'apply-case',
+  'default',
+  'apply-default'
+]
+var pairedTags = [
+  'if',
+  'apply-if',
+  'for-each',
+  'apply-for-each',
+  'switch',
+  'apply-switch',
+  'case',
+  'apply-case',
+  'default',
+  'apply-default'
 ]
 var singleTags = ['input']
 var mapAttrFragments = {}
 var mapCurrentFragmentNode = {}
-var importedComponents = {}
+var prefix = require('./wrappers').prefix
+var postfix = require('./wrappers').postfix
+var importedComponents = []
 var ParseError = require('gutt/helpers/parse-error')
 var switchMarker = {}
 var switchMarkerNone = 0
 var switchMarkerCase = 1 << 0
 var switchMarkerDefault = 1 << 1
-var tagAttrs = {}
 
 function linkNodeWithSwitchMarker (node) {
   switchMarker[node.id] = switchMarkerNone
@@ -55,21 +73,29 @@ function extractValuesFromAttrs (attrs, fields) {
   return result
 }
 
-function attrValueHandle (id, attr, ctx) {
+function attrValueHandle (attr, id) {
+  var name
+  var value
+
   if (attr.name) {
-    tagAttrs[id][handleNode(attr.name, ctx)] =
-      (attr.value !== null ? handleNode(attr.value, ctx) : false)
-  } else {
-    tagAttrs[id]['"' + handleNode(attr.value, ctx) + '"'] = false
+    name = handleNode(attr.name)
+    value = attr.value === null ? 'false' : handleNode(attr.value)
+
+    return 'attrs' + id + '[' + name + '] = ' + value + ';\n'
   }
+
+  return 'attrs' + id + '[\'' + handleNode(attr.value) + '\'] = false;\n'
 }
 
-function attrsHandler (fragment, attrs, ctx) {
+function attrsHandler (fragment, attrs) {
+  var result = []
+  var attrsFragment = fragment.firstChild ? handleTemplate(fragment.firstChild) : finishNode(fragment)
+
   attrs.forEach(function (attr) {
-    attrValueHandle(fragment.id, attr, ctx)
+    result.push(attrValueHandle(attr, fragment.id))
   })
 
-  fragment.firstChild ? handleTemplate(fragment.firstChild, ctx) : false
+  return 'var attrs' + fragment.id + ' = {};\n' + result.join('') + attrsFragment
 }
 
 function linkNodeWithAttrFragment (node, fragment) {
@@ -82,36 +108,39 @@ function getAttrFragmentByNode (node) {
 }
 
 function getMapCurrentFragmentNode (fragment) {
-  return mapCurrentFragmentNode[fragment.id]
+  return mapCurrentFragmentNode[fragment.id];
 }
 
 function setMapCurrentFragmentNode (attrFragment, node) {
   mapCurrentFragmentNode[attrFragment.id] = node
 }
 
-function handleDefaultTag (node, ctx) {
-  var children = []
-  var attr
+function handleDefaultTag (node) {
+  var children = ''
+  var attrs
   var fragment = new Tag('fragment')
-
-  tagAttrs[fragment.id] = {}
 
   linkNodeWithAttrFragment(node, fragment)
 
   if (!node.isSingle) {
-    children = node.firstChild ? handleTemplate(node.firstChild, ctx) : []
+    children = node.firstChild ? handleTemplate(node.firstChild) : finishNode(node)
   }
 
-  attrsHandler(fragment, node.attrs, ctx)
+  attrs = attrsHandler(fragment, node.attrs)
 
-  if (node.isSingle || ~singleTags.indexOf(node.name) || node.name === '!DOCTYPE') {
-    return [{tag: node.name, attrs: tagAttrs[fragment.id]}]
+  if (node.name === '!DOCTYPE') {
+    return attrs + '__children.push(__create(\'' + node.name + '\', attrs' + fragment.id + '));\n'
   }
 
-  return [{tag: node.name, attrs: tagAttrs[fragment.id], children: children}]
+  if (node.isSingle || ~singleTags.indexOf(node.name)) {
+    return attrs + '__children.push(__create(\'' + node.name + '\', attrs' + fragment.id + '));\n'
+  }
+
+  return attrs + '__children.push(__create(\'' + node.name + '\', attrs' + fragment.id +
+    ', function (__children) {\n' + children + '}));\n'
 }
 
-function handleTagAttribute (node, ctx) {
+function handleTagAttribute (node) {
   var parentNode = getParentTagNode(node)
   var attrFragment = getAttrFragmentByNode(parentNode)
   var clonedNode
@@ -126,36 +155,24 @@ function handleTagAttribute (node, ctx) {
   clonedNode = node.clone()
 
   clonedNode.name = 'apply-attribute'
-  clonedNode.attrs = clonedNode.attrs.map(function (attr) {
-    return {
-      name: handleNode(attr.name, ctx),
-      value: handleNode(attr.value, ctx)
-    }
-  })
 
   appendNodeToAttrFragment(attrFragment, clonedNode, false)
 
-  return []
+  return ''
 }
 
 function handleTagAttributeApply (node) {
   var fragment = node
-  var name
-  var value
+  var params = extractValuesFromAttrs(node.attrs, ['name', 'value'])
 
-  node.attrs.forEach(function (attr) {
-    if (attr.name === 'name') name = attr.value
-    if (attr.name === 'value') value = attr.value
-  })
-
-  if (typeof name === 'undefined') {
+  if (!params.name) {
     throw new ParseError('<attribute /> must contain `name`-attribute', {
       line: node.line,
       column: node.column
     })
   }
 
-  if (typeof value === 'undefined') {
+  if (!params.value) {
     throw new ParseError('<attribute /> must contain `value`-attribute', {
       line: node.line,
       column: node.column
@@ -166,37 +183,32 @@ function handleTagAttributeApply (node) {
     fragment = fragment.parentNode
   }
 
-  tagAttrs[fragment.id][name] = value
-
-  return false
+  return attrValueHandle(new Attr(params.name, params.value), fragment.id)
 }
 
-function handleParam (node, ctx) {
+function handleParam (node) {
   var params = extractValuesFromAttrs(node.attrs, ['name', 'value'])
   var name
   var value
 
-  if (typeof params.name === 'undefined') {
+  if (!params.name) {
     throw new ParseError('<param /> must contain `name`-attribute', {
       line: node.line,
       column: node.column
     })
   }
 
-  if (typeof params.value === 'undefined') {
+  if (!params.value) {
     throw new ParseError('<param /> must contain `value`-attribute', {
       line: node.line,
       column: node.column
     })
   }
 
-  name = handleNode(params.name, ctx)
+  name = handleNode(params.name)
+  value = handleNode(params.value)
 
-  if (typeof name === 'undefined') {
-    setStateFieldValue(ctx.state, params.name, handleNode(params.value, ctx))
-  }
-
-  return []
+  return 'if (typeof ' + name + ' === \'undefined\' || ' + name + ' === null) ' + name + ' = ' + value + ';\n'
 }
 
 function getParentTagNode (node) {
@@ -207,58 +219,91 @@ function getParentTagNode (node) {
   return node.parentNode
 }
 
-function handleIfStatement (node, ctx) {
+function handleIfStatement (node) {
   var params = extractValuesFromAttrs(node.attrs, ['test'])
+  var content
+  var parentNode = node
 
-  if (!node.firstChild) return []
-
-  var test = handleNode(params.test, ctx)
-
-  if ((typeof test === 'string' && test !== '0' && test !== 'false' && test.length) || test) {
-    return node.firstChild ? handleTemplate(node.firstChild, ctx) : []
+  while (parentNode.parentNode) {
+    parentNode = parentNode.parentNode
   }
 
-  return []
+  content = node.firstChild ? handleTemplate(node.firstChild) : finishNode(node)
+
+  if (!node.firstChild) return ''
+
+  if (parentNode.type === 'tag' && parentNode.name === 'fragment') {
+    mapCurrentFragmentNode[parentNode.id] = node.parentNode
+  }
+
+  return 'if (' + handleTemplate(params.test) + ') {\n' + content + '}\n'
 }
 
-function setStateFieldValue (state, field, value) {
-  var currentState = state
-  var lastKey = field.expr.value
+function handleIfStatementNode (node) {
+  var parentNode = getParentTagNode(node)
+  var attrFragment = getAttrFragmentByNode(parentNode)
+  var clonedNode
 
-  field.expr.keys.forEach(function (key, index) {
-    currentState = currentState[lastKey]
-    lastKey = key.value
-  })
+  if (attrFragment) {
+    clonedNode = node.clone()
 
-  currentState[lastKey] = value
+    clonedNode.name = 'apply-if'
+
+    appendNodeToAttrFragment(attrFragment, clonedNode)
+  }
+
+  return handleIfStatement(node)
 }
 
-function handleForEachStatement (node, ctx) {
+function handleForEachStatement (node) {
   var params = extractValuesFromAttrs(node.attrs, ['key', 'item', 'from'])
-  var key
-  var fromStatement = handleNode(params.from, ctx)
+  var fromStatement
+  var itemStatement
   var keyStatement
-  var content = []
-  var eachStatement
+  var content
+  var parentNode = node
 
-  if (!node.firstChild) return []
+  while (parentNode.parentNode) {
+    parentNode = parentNode.parentNode
+  }
+
+  content = node.firstChild ? handleTemplate(node.firstChild) : finishNode(node)
+
+  if (!node.firstChild) return ''
+
+  if (parentNode.type === 'tag' && parentNode.name === 'fragment') {
+    mapCurrentFragmentNode[parentNode.id] = node.parentNode
+  }
+
+  fromStatement = handleTemplate(params.from)
+  itemStatement = handleTemplate(params.item)
 
   if (params.key) {
-    keyStatement = handleNode(params.key, ctx)
+    keyStatement = handleTemplate(params.key)
   }
 
-  for (key in fromStatement) {
-    if (Object.prototype.hasOwnProperty.call(fromStatement, key)) {
-      if (params.key) {
-        setStateFieldValue(ctx.state, params.key, key)
-      }
+  return 'var key' + node.id + ';\n' +
+    'var from' + node.id + ' = ' + fromStatement + ';\n' +
+    'for (key' + node.id + ' in from' + node.id + ') {\n' +
+    itemStatement + ' = from' + node.id + '[key' + node.id + '];\n' +
+    (keyStatement ? keyStatement + ' = key' + node.id + ';\n' : '') +
+    content + '}\n'
+}
 
-      setStateFieldValue(ctx.state, params.item, fromStatement[key])
-      content = content.concat(node.firstChild ? handleTemplate(node.firstChild, ctx) : [])
-    }
+function handleForEachStatementNode (node) {
+  var parentNode = getParentTagNode(node)
+  var attrFragment = getAttrFragmentByNode(parentNode)
+  var clonedNode
+
+  if (attrFragment) {
+    clonedNode = node.clone()
+
+    clonedNode.name = 'apply-for-each'
+
+    appendNodeToAttrFragment(attrFragment, clonedNode)
   }
 
-  return content
+  return handleForEachStatement(node)
 }
 
 function appendNodeToAttrFragment (attrFragment, node, isSetNodeAsCurrentNodeAtFragment) {
@@ -286,12 +331,13 @@ function appendNodeToAttrFragment (attrFragment, node, isSetNodeAsCurrentNodeAtF
   }
 }
 
-function handleImportStatement (node, ctx) {
+function prepareComponentName (name) {
+  return name.replace(/\-/g, '')
+}
+
+function handleImportStatement (node) {
   var params = extractValuesFromAttrs(node.attrs, ['name', 'from'])
-  var name = handleNode(params.name, ctx)
-  var from = handleNode(params.from, ctx)
-  var componentPath
-  var includedTree
+  var name = handleNode(params.name).match(/^([\'\"])(.*)(\1)$/)[2]
 
   if (!~name.indexOf('-')) {
     throw new ParseError('Component name must contain dash (`-`) in the name', {
@@ -300,93 +346,89 @@ function handleImportStatement (node, ctx) {
     })
   }
 
-  componentPath = path.resolve((ctx.filePath ? path.dirname(ctx.filePath) : __dirname), from)
+  importedComponents.push(name)
 
-  includedTree = parser.parseFile(componentPath)
-
-  importedComponents[name] = stringifier.apply(includedTree, [
-    includedTree.result,
-    includedTree.source,
-    includedTree.filePath,
-    includedTree.rootPath,
-    true
-  ])
-
-  return []
+  return '__state["' + name + '"]' +
+    ' = require(' + handleNode(params.from) + ');\n'
 }
 
-function handleComponent (node, ctx) {
-  var children = ''
+function handleComponent (node) {
+  var children = 'var __children' + node.id + ' = [];\n'
+  var componentName
   var attrs
+  var attrsOutput
   var fragment = new Tag('fragment')
 
   linkNodeWithAttrFragment(node, fragment)
 
-  tagAttrs[fragment.id] = {}
-
-  if (!node.isSingle) {
-    children = node.firstChild ? handleTemplate(node.firstChild, ctx) : []
+  if (!node.isSingle && node.firstChild) {
+    children +=
+      '(function (__children) {\n' +
+      handleTemplate(node.firstChild) +
+      '})(__children' + node.id + ');\n'
   }
 
-  attrsHandler(fragment, node.attrs, ctx)
+  attrs = attrsHandler(fragment, node.attrs)
+  attrsOutput = 'attrs' + fragment.id
+  componentName = '__state["' + (node.name) + '"]'
 
-  var result = importedComponents[node.name](tagAttrs[fragment.id], children)
+  if (node.isSingle || ~singleTags.indexOf(node.name)) {
+    return attrs + 'var __result' + node.id + ' = ' + componentName + '(' + attrsOutput + ', [], true);\n' +
+      '__result' + node.id + '.forEach(function (__item) { __children.push(__item); });\n'
+  }
 
-  return result
+  return attrs + children + 'var __result' + node.id + ' = ' + componentName +
+    '(' + attrsOutput + ', __children' + node.id + ', true);\n' +
+    '__result' + node.id + '.forEach(function (__item) { __children.push(__item); });\n'
 }
 
-function handleVariable (node, ctx) {
+function handleVariable (node) {
   var params = extractValuesFromAttrs(node.attrs, ['name', 'value'])
 
-  if (typeof params.name === 'undefined') {
+  if (!params.name) {
     throw new ParseError('<variable /> must contain `name`-attribute', {
       line: node.line,
       column: node.column
     })
   }
 
-  if (typeof params.value === 'undefined') {
+  if (!params.value) {
     throw new ParseError('<variable /> must contain `value`-attribute', {
       line: node.line,
       column: node.column
     })
   }
 
-  setStateFieldValue(ctx.state, params.name, handleNode(params.value, ctx))
-
-  return []
+  return handleNode(params.name) + ' = ' + handleNode(params.value) + ';\n'
 }
 
-function handleSwitchStatement (node, ctx) {
-  var value
-  var nextSibling = node.firstChild
-
+function handleSwitchStatement (node) {
   linkNodeWithSwitchMarker(node)
 
-  while (nextSibling) {
-    if (nextSibling.type === 'tag' && nextSibling.name === 'case') {
-      value = handleCaseStatement(nextSibling, ctx)
-
-      if ((typeof value.test === 'string' && value.test !== '0' && value.test !== 'false' && value.test.length) || value.test) {
-        return value.children
-      }
-    }
-
-    if (nextSibling.type === 'tag' && nextSibling.name === 'default') {
-      return handleDefaultStatement(nextSibling, ctx)
-    }
-
-    nextSibling = nextSibling.nextSibling
-  }
-
-  return []
+  return handleTemplate(node.firstChild) + (switchMarker[node.id] & switchMarkerCase ? '}\n' : '')
 }
 
-function handleCaseStatement (node, ctx) {
+function handleSwitchStatementNode (node) {
+  var parentNode = getParentTagNode(node)
+  var attrFragment = getAttrFragmentByNode(parentNode)
+  var clonedNode
+
+  if (attrFragment) {
+    clonedNode = node.clone()
+
+    clonedNode.name = 'apply-switch'
+
+    appendNodeToAttrFragment(attrFragment, clonedNode)
+  }
+
+  return handleSwitchStatement(node)
+}
+
+function handleCaseStatement (node) {
   var params
   var children
 
-  if (node.parentNode.type !== 'tag' || (node.parentNode.name !== 'switch')) {
+  if (node.parentNode.type !== 'tag' || (node.parentNode.name !== 'switch' && node.parentNode.name !== 'apply-switch')) {
     throw new ParseError('<case /> must be at first level inside <switch />', {line: node.line, column: node.column})
   }
 
@@ -394,82 +436,146 @@ function handleCaseStatement (node, ctx) {
     throw new ParseError('<case /> must not be placed after <default />', {line: node.line, column: node.column})
   }
 
+  children = node.firstChild ? handleTemplate(node.firstChild) : finishNode(node)
   params = extractValuesFromAttrs(node.attrs, ['test'])
 
-  setSwitchMarkerHasCase(node)
+  if (isFirstSwitchCase(node)) {
+    setSwitchMarkerHasCase(node)
 
-  var test = handleNode(params.test, ctx)
-
-  if ((typeof test === 'string' && test !== '0' && test !== 'false') || test) {
-    return {
-      test: true,
-      children: node.firstChild ? handleTemplate(node.firstChild, ctx) : []
-    }
+    return 'if (' + handleNode(params.test) + ') {\n' + children
   }
 
-  return {test: false}
+  params = extractValuesFromAttrs(node.attrs, ['test'])
+
+  return '} else if (' + handleNode(params.test) + ') {\n' + children
 }
 
-function handleDefaultStatement (node, ctx) {
+function handleCaseStatementNode (node) {
+  var parentNode = getParentTagNode(node)
+  var attrFragment = getAttrFragmentByNode(parentNode)
+  var clonedNode
+
+  if (attrFragment) {
+    clonedNode = node.clone()
+
+    clonedNode.name = 'apply-case'
+
+    appendNodeToAttrFragment(attrFragment, clonedNode)
+  }
+
+  return handleCaseStatement(node)
+}
+
+function handleDefaultStatement (node) {
+  var children
+
   if (node.parentNode.type !== 'tag' || (node.parentNode.name !== 'switch' && node.parentNode.name !== 'apply-switch')) {
     throw new ParseError('<default /> must be at first level inside <switch />', {line: node.line, column: node.column})
   }
 
-  setSwitchMarkerHasDefault(node)
+  children = node.firstChild ? handleTemplate(node.firstChild) : finishNode(node)
 
-  return node.firstChild ? handleTemplate(node.firstChild, ctx) : []
-}
-
-function handleTemplateStatement (node, ctx) {
-  var params = extractValuesFromAttrs(node.attrs, ['name'])
-
-  if (node.firstChild) {
-    setStateFieldValue(ctx.state, params.name, handleTemplate(node.firstChild, ctx))
+  if (isFirstSwitchCase(node)) {
+    setSwitchMarkerHasDefault(node)
+    return children
   }
 
-  return []
+  setSwitchMarkerHasDefault(node)
+  return '} else {\n' + children
 }
 
-function handleTag (node, ctx) {
+function handleDefaultStatementNode (node) {
+  var parentNode = getParentTagNode(node)
+  var attrFragment = getAttrFragmentByNode(parentNode)
+  var clonedNode
+
+  if (attrFragment) {
+    clonedNode = node.clone()
+
+    clonedNode.name = 'apply-default'
+
+    appendNodeToAttrFragment(attrFragment, clonedNode)
+  }
+
+  return handleDefaultStatement(node)
+}
+
+function handleTemplateStatement (node) {
+  var params = extractValuesFromAttrs(node.attrs, ['name'])
+  var name = handleNode(params.name)
+  var children = 'var __children' + node.id + ' = [];\n'
+
+  if (!node.isSingle && node.firstChild) {
+    children +=
+      '(function (__children) {\n' +
+      handleTemplate(node.firstChild) +
+      '})(__children' + node.id + ');\n'
+  }
+
+  return children + name + ' = __children' + node.id + ';\n'
+}
+
+function handleTag (node) {
   switch (node.name) {
     case 'param':
-      return handleParam(node, ctx)
+      return handleParam(node)
 
     case 'variable':
-      return handleVariable(node, ctx)
+      return handleVariable(node)
 
     case 'attribute':
-      return handleTagAttribute(node, ctx)
+      return handleTagAttribute(node)
 
     case 'apply-attribute':
       return handleTagAttributeApply(node)
 
     case 'if':
-      return handleIfStatement(node, ctx)
+      return handleIfStatementNode(node)
+
+    case 'apply-if':
+      return handleIfStatement(node)
 
     case 'for-each':
-      return handleForEachStatement(node, ctx)
+      return handleForEachStatementNode(node)
+
+    case 'apply-for-each':
+      return handleForEachStatement(node)
 
     case 'import':
-      return handleImportStatement(node, ctx)
+      return handleImportStatement(node)
 
     case 'switch':
-      return handleSwitchStatement(node, ctx)
+      return handleSwitchStatementNode(node)
+
+    case 'case':
+      return handleCaseStatementNode(node)
+
+    case 'default':
+      return handleDefaultStatementNode(node)
+
+    case 'apply-switch':
+      return handleSwitchStatement(node)
+
+    case 'apply-case':
+      return handleCaseStatement(node)
+
+    case 'apply-default':
+      return handleDefaultStatement(node)
 
     case 'template':
-      return handleTemplateStatement(node, ctx)
+      return handleTemplateStatement(node)
 
     default:
-      if (typeof importedComponents[node.name] !== 'undefined') {
-        return handleComponent(node, ctx)
+      if (~importedComponents.indexOf(node.name)) {
+        return handleComponent(node)
       }
 
-      return handleDefaultTag(node, ctx)
+      return handleDefaultTag(node)
   }
 }
 
 function handleComment (node) {
-  return [{comment: node.value}]
+  return '__children.push(__create(false, \'' + escapeString(node.value) + '\'));\n'
 }
 
 function handleText (node) {
@@ -477,34 +583,36 @@ function handleText (node) {
     throw new ParseError('Text node must not be placed inside <switch />', {
       line: node.line,
       column: node.column
-    })
+    });
   }
 
-  return [{text: node.text}]
+  return '__children.push(__create(\'' + escapeString(node.text) + '\'))\n'
 }
 
 function handleString (node) {
-  return node.value
+  return '"' + escapeString(node.value) + '"'
 }
 
-function logicNodeHandler (node, ctx) {
-  var result = logicHandler(node.expr, ctx)
+function logicNodeHandler (node) {
+  var expr = logicHandler(node.expr)
 
-  if (typeof result === 'object') {
-    return result
+  if (node.type === 'logic-node' && node.expr.type === 'logic' && node.expr.expr.type === 'var') {
+    return (
+      'if (typeof ' + expr + ' === \'object\' && Object.prototype.toString.call(' + expr + ') === \'[object Array]\') {\n' +
+      '  ' + expr + '.forEach(function (__item) { __children.push(__item); });\n' +
+      '} else {\n' +
+      '  __children.push(__create(' + expr + '));\n' +
+      '}'
+    )
   }
 
-  return [{text: result}]
+  return '__children.push(__create(' + expr + '));\n'
 }
 
-function scriptNodeHandler (node) {
-  return [{script: true, attrs: node.attrs, text: node.text}]
-}
-
-function handleNode (node, ctx) {
+function handleNode (node) {
   switch (node.type) {
     case 'tag':
-      return handleTag(node, ctx)
+      return handleTag(node)
     case 'comment':
       return handleComment(node)
     case 'text':
@@ -512,56 +620,57 @@ function handleNode (node, ctx) {
     case 'string':
       return handleString(node)
     case 'logic':
-      return logicHandler(node, ctx)
+      return logicHandler(node)
     case 'logic-node':
-      return logicNodeHandler(node, ctx)
-    case 'script':
-      return scriptNodeHandler(node)
+      return logicNodeHandler(node)
   }
 }
 
-function handleTemplate (node, ctx) {
+function finishNode (node) {
+  var attrFragment
+  var currentAttrNode
+  var parentNode
+
+  if (node.type === 'tag' && ~pairedTags.indexOf(node.name)) {
+    parentNode = getParentTagNode(node)
+
+    attrFragment = getAttrFragmentByNode(parentNode)
+
+    if (attrFragment) {
+      currentAttrNode = getMapCurrentFragmentNode(attrFragment)
+
+      setMapCurrentFragmentNode(attrFragment, currentAttrNode.parentNode)
+    }
+  }
+
+  return ''
+}
+
+function handleTemplate (node) {
   var buffer = []
 
   while (node) {
-    buffer = buffer.concat(handleNode(node, ctx))
+    buffer.push(handleNode(node))
 
     if (!node.nextSibling) break;
 
     node = node.nextSibling
   }
 
-  return buffer
-}
-
-function stringifier (template, source, filePath, rootPath, returnObject) {
-  return function (data, children) {
-    var state
-    var key
-    var tree
-
-    if (typeof data !== 'object') {
-      state = data
-    } else if (Object.prototype.toString.call(data) === '[object Array]') {
-      state = [].concat(data)
-    } else {
-      state = {}
-
-      for (key in data) {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-          state[key] = data[key]
-        }
-      }
-    }
-
-    tree = handleTemplate(template, {
-      state: state,
-      children: children,
-      filePath: filePath
-    })
-
-    return returnObject ? tree : treeToString(tree).trim()
+  if (node.parentNode) {
+    finishNode(node.parentNode)
   }
+
+  return buffer.join('')
 }
 
-module.exports = stringifier
+module.exports = function (template) {
+  mapAttrFragments = {}
+  mapCurrentFragmentNode = {}
+  importedComponents = []
+  switchMarker = {}
+
+  var templateResult = handleTemplate(template)
+
+  return prefix + templateResult + postfix
+}

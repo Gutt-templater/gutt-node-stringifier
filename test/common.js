@@ -1,22 +1,26 @@
 /* globals describe, it, Promise */
 
-var path = require('path')
 var chai = require('chai')
-var parse = require('./helpers/parse')
-var generateName = require('./helpers/generate-name')
-var writeFile = require('./helpers/write-file')
-var tempPath = path.resolve(__dirname, '../tmp/')
+var chaiAsPromised = require('chai-as-promised')
 
+var generateName = require('./helpers/generate-name')
+var parse = require('./helpers/parse').parse
+var parseAndWriteFile = require('./helpers/parse').parseAndWriteFile
+var runTemplate = require('./helpers/parse').runTemplate
+
+chai.use(chaiAsPromised)
 chai.should()
 
-describe ('Nodejs stringifier common functions', function () {
+describe ('Nodejs stringifier', function () {
+  this.timeout(3000)
+
   it ('html empty comment', function () {
-    return parse('<component><!----></component>').should.equal('<!---->')
+    return parse('<component><!----></component>').should.eventually.equal('<!---->')
   })
 
   it ('html text comment', function () {
     return parse('<component><!-- some text 12345 _ # $ % ! - -\\- = [ ] \{ \} + ; : ( ) " \' \ / ~ _#$%!-\\-=+;:()"\'\/~ qwe123:-_ --></component>')
-      .should.equal('<!-- some text 12345 _ # $ % ! - -- = [ ] \{ \} + ; : ( ) " \' \ / ~ _#$%!--=+;:()"\'\/~ qwe123:-_ -->')
+      .should.eventually.equal('<!-- some text 12345 _ # $ % ! - -- = [ ] \{ \} + ; : ( ) " \' \ / ~ _#$%!--=+;:()"\'\/~ qwe123:-_ -->')
   })
 
   it ('echo expression', function () {
@@ -30,7 +34,7 @@ describe ('Nodejs stringifier common functions', function () {
       d: 'variable'
     }
 
-    return parse('<component>{ $b + $c[$d][\'str\'] * 2 }</component>', params).should.equal('7')
+    return parse('<component>{ $b + $c[$d][\'str\'] * 2 }</component>', params).should.eventually.equal('7')
   })
 
   it ('foreach expression without index', function () {
@@ -48,11 +52,11 @@ describe ('Nodejs stringifier common functions', function () {
         {
           title: 'Olds'
         }
-      ],
-      l1: {l2: {}}
+      ]
     }
 
-    return parse(template, params).should.equal('<h1>News</h1><h1>Olds</h1>')
+    return parse(template, params)
+      .should.eventually.equal('<h1>News</h1><h1>Olds</h1>')
   })
 
   it ('foreach expression with index', function () {
@@ -74,7 +78,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</component>'
 
     return parse(template, params)
-      .should.equal('<h1 data-index="0">News</h1><h1 data-index="1">Olds</h1>')
+      .should.eventually.equal('<h1 data-index="0">News</h1><h1 data-index="1">Olds</h1>')
   })
 
   it ('foreach statement at attributes at single tag', function () {
@@ -89,7 +93,7 @@ describe ('Nodejs stringifier common functions', function () {
     var result =
       '<input title="Hello" data-index0="0" data-index1="1" data-index2="2" data-index3="3" />'
 
-    return parse(template).should.equal(result)
+    return parse(template).should.eventually.equal(result)
   })
 
   it ('foreach statement at attributes at couple tag', function () {
@@ -102,7 +106,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</div>' +
       '</component>'
 
-    return parse(template, {item: 2}).should.equal('<div title="Hello" data-index0="0" data-index1="1" data-index2="2" data-index3="3"></div>')
+    return parse(template, {item: 2}).should.eventually.equal('<div title="Hello" data-index0="0" data-index1="1" data-index2="2" data-index3="3"></div>')
   })
 
   it ('switch statement for tags with default', function () {
@@ -113,7 +117,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</switch>' +
       '</component>'
 
-    return parse(template, {}).should.equal('default value')
+    return parse(template, {}).should.eventually.equal('default value')
   })
 
   it ('switch statement for tags with positive case 1', function () {
@@ -124,7 +128,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</switch>' +
       '</component>'
 
-    return parse(template, {a: 2, b: 1}).should.equal('case 1')
+    return parse(template, {a: 2, b: 1}).should.eventually.equal('case 1')
   })
 
   it ('switch statement for tags with negative case 1', function () {
@@ -135,7 +139,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</switch>' +
       '</component>'
 
-    return parse(template, {a: 1, b: 2}).should.equal('')
+    return parse(template, {a: 1, b: 2}).should.eventually.equal('')
   })
 
   it ('switch statement for tags with positive case 2', function () {
@@ -147,7 +151,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</switch>' +
       '</component>'
 
-    return parse(template, {a: 1, b: 2}).should.equal('case 2')
+    return parse(template, {a: 1, b: 2}).should.eventually.equal('case 2')
   })
 
   it ('switch statement for tags with positive default statement', function () {
@@ -159,7 +163,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</switch>' +
       '</component>'
 
-    return parse(template, {a: 1, b: 2}).should.equal('default statement')
+    return parse(template, {a: 1, b: 2}).should.eventually.equal('default statement')
   })
 
   it ('switch statement for attributes with default', function () {
@@ -174,7 +178,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</div>' +
       '</component>'
 
-    return parse(template, {}).should.equal('<div data-id="qwerty"></div>')
+    return parse(template, {}).should.eventually.equal('<div data-id="qwerty"></div>')
   })
 
   it ('switch statement for attributes with positive case 1', function () {
@@ -189,7 +193,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</div>' +
       '</component>'
 
-    return parse(template, {a: 2, b: 1}).should.equal('<div case="1"></div>')
+    return parse(template, {a: 2, b: 1}).should.eventually.equal('<div case="1"></div>')
   })
 
   it ('switch statement for attributes with negative case 1', function () {
@@ -204,7 +208,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</div>' +
       '</component>'
 
-    return parse(template, {a: 1, b: 2}).should.equal('<div></div>')
+    return parse(template, {a: 1, b: 2}).should.eventually.equal('<div></div>')
   })
 
   it ('switch statement for attributes with positive case 2', function () {
@@ -222,7 +226,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</div>' +
       '</component>'
 
-    return parse(template, {a: 1, b: 2}).should.equal('<div case="2"></div>')
+    return parse(template, {a: 1, b: 2}).should.eventually.equal('<div case="2"></div>')
   })
 
   it ('switch statement for attributes with positive default statement', function () {
@@ -240,10 +244,10 @@ describe ('Nodejs stringifier common functions', function () {
       '</div>' +
       '</component>'
 
-    return parse(template, {a: 1, b: 2}).should.equal('<div case="default statement"></div>')
+    return parse(template, {a: 1, b: 2}).should.eventually.equal('<div case="default statement"></div>')
   })
 
-  it ('switch expression', function () {
+  it ('if expression', function () {
     var template =
       '<component>' +
       '<switch>' +
@@ -261,7 +265,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</component>'
     var params = {a: 5, b: 10}
 
-    return parse(template, params).should.equal('10')
+    return parse(template, params).should.eventually.equal('10')
   })
 
   it ('if expression 2', function () {
@@ -282,7 +286,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</component>'
     var params = {a: 10, b: 5}
 
-    return parse(template, params).should.equal('5')
+    return parse(template, params).should.eventually.equal('5')
   })
 
   it ('empty statements', function () {
@@ -301,7 +305,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</div>' +
       '</component>'
 
-    return parse(template, {a: 1, b: 2}).should.equal('<div></div>')
+    return parse(template, {a: 1, b: 2}).should.eventually.equal('<div></div>')
   })
 
   it ('array expressions open range grow up', function () {
@@ -312,7 +316,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template, {end: 9}).should.equal('5678')
+    return parse(template, {end: 9}).should.eventually.equal('5678')
   })
 
   it ('array expressions open range grow down', function () {
@@ -323,7 +327,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template, {end: 0}).should.equal('54321')
+    return parse(template, {end: 0}).should.eventually.equal('54321')
   })
 
   it ('array expressions closed range grow up', function () {
@@ -334,7 +338,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template, {end: 9}).should.equal('56789')
+    return parse(template, {end: 9}).should.eventually.equal('56789')
   })
 
   it ('array expressions closed range grow down', function () {
@@ -345,7 +349,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</for-each>' +
       '</component>'
 
-    return parse(template, {end: 0}).should.equal('543210')
+    return parse(template, {end: 0}).should.eventually.equal('543210')
   })
 
   it ('doctype', function () {
@@ -369,7 +373,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</body>' +
       '</html>'
 
-    return parse(template).should.equal(result)
+    return parse(template).should.eventually.equal(result)
   })
 
   it ('isset', function () {
@@ -381,7 +385,7 @@ describe ('Nodejs stringifier common functions', function () {
       '</switch>' +
       '</component>'
 
-    return parse(template, {field: {}}).should.equal('hidden')
+    return parse(template, {field: {}}).should.eventually.equal('hidden')
   })
 
   it ('param with default value', function () {
@@ -394,20 +398,20 @@ describe ('Nodejs stringifier common functions', function () {
       '</switch>' +
       '</component>'
 
-    return parse(template, {b: 2}).should.equal('default')
+    return parse(template, {b: 2}).should.eventually.equal('default')
   })
 
   it ('param with rewritten value', function () {
     var template =
       '<component>' +
-      '<param name={$a} value={1} />' +
+      '<param name={$a} value={3} />' +
       '<switch>' +
       '<case test={$a > $b}>first</case>' +
       '<default>default</default>' +
       '</switch>' +
       '</component>'
 
-    return parse(template, {a: 3, b: 2}).should.equal('first')
+    return parse(template, {b: 2}).should.eventually.equal('first')
   })
 
   it ('bits operations', function () {
@@ -432,17 +436,17 @@ describe ('Nodejs stringifier common functions', function () {
       '{15 ^ 7}' +
       '</component>'
 
-    return parse(template).should.equal('1245688')
+    return parse(template).should.eventually.equal('1245688')
   })
 
   it ('import and inlude', function () {
     var tempAsideName = generateName()
 
-    return writeFile(tempPath + tempAsideName, '<component><aside>{$children}</aside></component>')
+    return parseAndWriteFile('<component><aside>{$children}</aside></component>', tempAsideName + '.js')
       .then(function () {
         var template =
           '<component>' +
-          '<import name="aside-component" from="./tmp/' + tempAsideName + '" />' +
+          '<import name="aside-component" from="./' + tempAsideName + '" />' +
           '<div>' +
           '<aside-component>' +
           '<h1>Hello</h1>' +
@@ -483,9 +487,9 @@ describe ('Nodejs stringifier common functions', function () {
       ]
     }
 
-    return writeFile(tempPath + tempCommentsName, template)
+    return parseAndWriteFile(template, tempCommentsName + '.js')
       .then(function () {
-        return parse(template, data, './tmp/tmp.tmplt')
+        return runTemplate(tempCommentsName, data)
       })
       .should.eventually.equal('<div>Aleksei<div><div>Natasha<div></div></div></div></div>')
   })
@@ -518,9 +522,9 @@ describe ('Nodejs stringifier common functions', function () {
       ]
     }
 
-    return writeFile(tempPath + tempCommentsName, template)
+    return parseAndWriteFile(template, tempCommentsName + '.js')
       .then(function () {
-        return parse(template, data, './tmp/tmp.tmplt')
+        return runTemplate(tempCommentsName, data)
       })
       .should.eventually.equal('<div>Aleksei<div><div>Natasha<div></div></div></div></div>')
   })
@@ -528,6 +532,7 @@ describe ('Nodejs stringifier common functions', function () {
   it ('include with common scope of template and children', function () {
     var tempWrapName = generateName()
     var tempAsideName = generateName()
+    var tempName = generateName()
     var wrapTemplate =
       '<component>' +
       '<wrap title={$title}>{$children}</wrap>' +
@@ -539,24 +544,25 @@ describe ('Nodejs stringifier common functions', function () {
       '</component>'
     var template =
       '<component>' +
-      '<import name="wrap-component" from="./' + tempWrapName + '" />' +
+      '<import name={"wrap-component"} from="./' + tempWrapName + '" />' +
       '<import name="aside-component" from="./' + tempAsideName + '" />' +
       '<variable name={$variable} value={1} />' +
       '<wrap-component title="Title of Wrap!">' +
       '<aside-component>' +
       'Text' +
-      '<variable name={$variable} value={num_int($variable) + 1} />' +
+      '<variable name={$variable} value={$variable + 1} />' +
       '</aside-component>' +
       '</wrap-component>' +
       '{$variable}' +
       '</component>'
 
     return Promise.all([
-      writeFile(tempPath + tempWrapName, wrapTemplate),
-      writeFile(tempPath + tempAsideName, asideTemplate)
+      parseAndWriteFile(wrapTemplate, tempWrapName + '.js'),
+      parseAndWriteFile(asideTemplate, tempAsideName + '.js'),
+      parseAndWriteFile(template, tempName + '.js')
     ])
       .then(function () {
-        return parse(template, {}, './tmp/tmp.tmplt')
+        return runTemplate(tempName)
       })
       .should.eventually.equal('<wrap title="Title of Wrap!"><aside>Text<hr /></aside></wrap>2')
   })
@@ -584,9 +590,9 @@ describe ('Nodejs stringifier common functions', function () {
       '</wrap-component>' +
       '</component>'
 
-    return writeFile(tempPath + tempWrapName,  wrapTemplate)
+    return parseAndWriteFile(wrapTemplate, tempWrapName + '.js')
       .then(function () {
-        return parse(template, {}, './tmp/tmp.tmplt')
+        return parse(template)
       })
       .should.eventually.equal('<option>line1</option><option>line2</option><option>line3</option><option>line4</option>')
   })
@@ -603,7 +609,7 @@ describe ('Nodejs stringifier common functions', function () {
       '{$sub-template}' +
       '</component>'
 
-    return parse(template).should.equal('<item>line1</item><item>line2</item><item>line3</item><item>line4</item>')
+    return parse(template).should.eventually.equal('<item>line1</item><item>line2</item><item>line3</item><item>line4</item>')
   })
 
   it ('using template node', function () {
@@ -632,9 +638,9 @@ describe ('Nodejs stringifier common functions', function () {
       '</wrap-component>' +
       '</component>'
 
-    return writeFile(tempPath + tempWrapName, wrapTemplate)
+    return parseAndWriteFile(wrapTemplate, tempWrapName + '.js')
       .then(function () {
-        return parse(template, {}, './tmp/tmp.tmplt')
+        return parse(template)
       })
       .should.eventually.equal(
         '<div data-index="0"><item>line1</item></div><div data-index="1"><item>line22</item></div>' +
@@ -651,6 +657,6 @@ describe ('Nodejs stringifier common functions', function () {
       '{$variable-with-dash - 1}' +
       '</component>'
 
-    return parse(template).should.equal('20')
+    return parse(template).should.eventually.equal('20')
   })
 })

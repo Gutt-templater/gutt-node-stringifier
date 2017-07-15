@@ -1,17 +1,19 @@
 /* globals describe, it */
 
 var chai = require('chai')
-var parse = require('./helpers/parse')
+var chaiAsPromised = require('chai-as-promised')
+var parse = require('./helpers/parse').parse
 
+chai.use(chaiAsPromised)
 chai.should()
 
-describe ('Nodejs number functions', function () {
+describe ('PHP number functions', function () {
   it ('num_int', function () {
-    return parse('<component>{ num_int(11/3) }</component>').should.equal('3')
+    return parse('<component>{ num_int(11/3) }</component>').should.eventually.equal('3')
   })
 
   it ('num_int from string', function () {
-    return parse('<component>{ num_int(\'123.456\') }</component>').should.equal('123')
+    return parse('<component>{ num_int(\'123.456\') }</component>').should.eventually.equal('123')
   })
 
   it ('num_float', function () {
@@ -22,7 +24,7 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_float from string', function () {
@@ -33,7 +35,7 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_pow', function () {
@@ -44,7 +46,7 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_abs', function () {
@@ -55,7 +57,7 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_acos', function () {
@@ -64,7 +66,7 @@ describe ('Nodejs number functions', function () {
       'good' +
       '</if></component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_asin', function () {
@@ -75,7 +77,7 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_atan', function () {
@@ -86,7 +88,7 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_cos', function () {
@@ -97,7 +99,7 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_sin', function () {
@@ -108,7 +110,7 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_tan', function () {
@@ -119,35 +121,35 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 
   it ('num_round to up', function () {
-    return parse('<component>{ num_round(11/3) }</component>').should.equal('4')
+    return parse('<component>{ num_round(11/3) }</component>').should.eventually.equal('4')
   })
 
   it ('num_round to down', function () {
-    return parse('<component>{ num_round(15/7) }</component>').should.equal('2')
+    return parse('<component>{ num_round(15/7) }</component>').should.eventually.equal('2')
   })
 
   it ('num_round half to up', function () {
-    return parse('<component>{ num_round(15/2) }</component>').should.equal('8')
+    return parse('<component>{ num_round(15/2) }</component>').should.eventually.equal('8')
   })
 
   it ('num_round negative to up', function () {
-    return parse('<component>{ num_round(-11/3) }</component>').should.equal('-4')
+    return parse('<component>{ num_round(-11/3) }</component>').should.eventually.equal('-4')
   })
 
   it ('num_round negative to down', function () {
-    return parse('<component>{ num_round(-15/7) }</component>').should.equal('-2')
+    return parse('<component>{ num_round(-15/7) }</component>').should.eventually.equal('-2')
   })
 
   it ('num_round negative half to up', function () {
-    return parse('<component>{ num_round(-15/2) }</component>').should.equal('-7')
+    return parse('<component>{ num_round(-15/2) }</component>').should.eventually.equal('-7')
   })
 
   it ('num_sqrt', function () {
-    return parse('<component>{ num_sqrt(16) }</component>').should.equal('4')
+    return parse('<component>{ num_sqrt(16) }</component>').should.eventually.equal('4')
   })
 
   it ('num_rand', function () {
@@ -159,6 +161,6 @@ describe ('Nodejs number functions', function () {
       '</if>' +
       '</component>'
 
-    return parse(template).should.equal('good')
+    return parse(template).should.eventually.equal('good')
   })
 })

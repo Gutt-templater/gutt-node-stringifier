@@ -24,13 +24,6 @@ module.exports = function treeToString (tree) {
       return '<!--' + item.comment + '-->'
     }
 
-    if (typeof item.script !== 'undefined') {
-      return (
-        '<script' + (item.attrs.length ? ' ': '') + item.attrs + '>' +
-        item.text + '</script>'
-      )
-    }
-
     if (typeof item.text !== 'undefined') {
       return item.text
     }
