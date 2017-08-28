@@ -179,7 +179,7 @@ function expression (tree) {
       return tree.value
 
     case 'str':
-      return expression('"' + tree.value + '"')
+      return expression('"' + tree.value.replace(/"/g, '\\"') + '"')
 
     case 'num':
       return tree.value

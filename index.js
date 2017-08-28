@@ -594,9 +594,9 @@ function handleString (node) {
 }
 
 function logicNodeHandler (node) {
-  var expr = logicHandler(node.expr)
+  var expr = logicHandler(node)
 
-  if (node.type === 'logic-node' && node.expr.type === 'logic' && node.expr.expr.type === 'var') {
+  if (node.type === 'logic-node' && node.expr.type === 'var') {
     return (
       'if (typeof ' + expr + ' === \'object\' && Object.prototype.toString.call(' + expr + ') === \'[object Array]\') {\n' +
       '  ' + expr + '.forEach(function (__item) { __children.push(__item); });\n' +
