@@ -417,6 +417,8 @@ function expression (tree, ctx) {
       return expression(tree.value[0], ctx) * expression(tree.value[1], ctx)
     case 'divis':
       return expression(tree.value[0], ctx) / expression(tree.value[1], ctx)
+    case 'mod':
+      return expression(tree.value[0], ctx) % expression(tree.value[1], ctx)
     case 'or':
       return expression(tree.value[0], ctx) || expression(tree.value[1], ctx)
     case 'and':
