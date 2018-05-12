@@ -212,6 +212,9 @@ module.exports = {
     '    if (typeof item.text !== \'undefined\') {\n' +
     '      return item.text;\n' +
     '    }\n' +
+    '    if (typeof item.script !== \'undefined\') {\n' +
+    '      return \'<script\' + attrsToString(item.attrs) + \'>\' + item.body + \'</script>\';\n' +
+    '    }\n' +
     '    if (typeof item.tag !== \'undefined\') {\n' +
     '      return (\n' +
     '        \'<\' + item.tag + attrsToString(item.attrs) + (typeof item.children !== \'undefined\' ?\n' +

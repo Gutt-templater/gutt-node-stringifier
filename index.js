@@ -609,6 +609,18 @@ function logicNodeHandler (node) {
   return '__children.push(__create(' + expr + '));\n'
 }
 
+function handleScript (node) {
+  var attrs = []
+
+  node.attrs.forEach(function (attr) {
+    attrs.push(attrValueHandle(attr, node.id))
+  })
+
+  return 'attrs' + node.id + ' = {};\n' + attrs.join('') +
+    '__children.push(__create({script: true, attrs: attrs' + node.id +
+    ', body: \'' + escapeString(node.body.str) + '\'}));\n'
+}
+
 function handleNode (node) {
   switch (node.type) {
     case 'tag':
@@ -619,6 +631,8 @@ function handleNode (node) {
       return handleText(node)
     case 'string':
       return handleString(node)
+    case 'script':
+      return handleScript(node)
     case 'logic':
       return logicHandler(node)
     case 'logic-node':
