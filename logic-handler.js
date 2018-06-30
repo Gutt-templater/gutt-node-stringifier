@@ -103,6 +103,10 @@ function handleFunction (tree) {
       return 'Math.random()'
     case 'num_sqrt':
       return 'Math.sqrt(' + params.join(', ') + ')'
+    case 'classes':
+      return '[' + params.join(', ') + '].filter(function (className) {'+
+        ' return Boolean(className)' +
+        '}).join(" ")'
     default:
       return funcName + '(' + params.join(', ') + ')'
   }
