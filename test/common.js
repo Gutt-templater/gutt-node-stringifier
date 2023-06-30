@@ -685,4 +685,89 @@ describe ('Nodejs stringifier', function () {
 
     return parse(template).should.eventually.equal('<div class="block element"></div>')
   })
+
+  it ('slot with passed children', function () {
+    var tempWrapName = generateName()
+    var wrapTemplate =
+      '<aside><slot /></aside>'
+    var template =
+      '<import name="aside-component" from="./' + tempWrapName + '" />' +
+      '<article><aside-component><h1>children</h1></aside-component></article>'
+
+    return parseAndWriteFile(wrapTemplate, tempWrapName + '.js')
+      .then(function () {
+        return parse(template)
+      })
+      .should.eventually.equal(
+        '<article><aside><h1>children</h1></aside></article>'
+      )
+  })
+
+  it ('slot without passed children', function () {
+    var tempWrapName = generateName()
+    var wrapTemplate =
+      '<aside><slot /></aside>'
+    var template =
+      '<import name="aside-component" from="./' + tempWrapName + '" />' +
+      '<article><aside-component /></article>'
+
+    return parseAndWriteFile(wrapTemplate, tempWrapName + '.js')
+      .then(function () {
+        return parse(template)
+      })
+      .should.eventually.equal(
+        '<article><aside></aside></article>'
+      )
+  })
+
+  it ('slot without passed children single call', function () {
+    var tempWrapName = generateName()
+    var wrapTemplate =
+      '<aside><slot /></aside>'
+    var template =
+      '<import name="aside-component" from="./' + tempWrapName + '" />' +
+      '<article><aside-component /></article>'
+
+    return parseAndWriteFile(wrapTemplate, tempWrapName + '.js')
+      .then(function () {
+        return parse(template)
+      })
+      .should.eventually.equal(
+        '<article><aside></aside></article>'
+      )
+  })
+
+  it ('slot with alternate children', function () {
+    var tempWrapName = generateName()
+    var wrapTemplate =
+      '<aside><slot><h2>alternate</h2></slot></aside>'
+    var template =
+      '<import name="aside-component" from="./' + tempWrapName + '" />' +
+      '<article><aside-component></aside-component></article>'
+
+    return parseAndWriteFile(wrapTemplate, tempWrapName + '.js')
+      .then(function () {
+        return parse(template)
+      })
+      .should.eventually.equal(
+        '<article><aside><h2>alternate</h2></aside></article>'
+      )
+  })
+
+  it ('slot with alternate children single call', function () {
+    var tempWrapName = generateName()
+    var wrapTemplate =
+      '<aside><slot><h2>alternate</h2></slot></aside>'
+    var template =
+      '<import name="aside-component" from="./' + tempWrapName + '" />' +
+      '<article><aside-component /></article>'
+
+    return parseAndWriteFile(wrapTemplate, tempWrapName + '.js')
+      .then(function () {
+        return parse(template)
+      })
+      .should.eventually.equal(
+        '<article><aside><h2>alternate</h2></aside></article>'
+      )
+  })
 })

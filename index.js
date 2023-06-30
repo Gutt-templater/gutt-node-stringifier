@@ -331,10 +331,6 @@ function appendNodeToAttrFragment (attrFragment, node, isSetNodeAsCurrentNodeAtF
   }
 }
 
-function prepareComponentName (name) {
-  return name.replace(/\-/g, '')
-}
-
 function handleImportStatement (node) {
   var params = extractValuesFromAttrs(node.attrs, ['name', 'from'])
   var name = handleNode(params.name).match(/^([\'\"])(.*)(\1)$/)[2]
@@ -515,6 +511,16 @@ function handleTemplateStatement (node) {
   return children + name + ' = __children' + node.id + ';\n'
 }
 
+function handleSlotStatement(node) {
+  children = node.firstChild ? handleTemplate(node.firstChild) : ''
+
+  return 'if (___children.length) {\n' +
+    '___children.forEach(function(item) { __children.push(item); });\n' +
+    '} else {\n' +
+    children +
+    '}\n'
+}
+
 function handleTag (node) {
   switch (node.name) {
     case 'param':
@@ -564,6 +570,9 @@ function handleTag (node) {
 
     case 'template':
       return handleTemplateStatement(node)
+
+    case 'slot':
+      return handleSlotStatement(node)
 
     default:
       if (~importedComponents.indexOf(node.name)) {
