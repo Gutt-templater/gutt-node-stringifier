@@ -512,7 +512,7 @@ function handleTemplateStatement (node) {
 }
 
 function handleSlotStatement(node) {
-  children = node.firstChild ? handleTemplate(node.firstChild) : ''
+  var children = node.firstChild ? handleTemplate(node.firstChild) : ''
 
   return 'if (___children.length) {\n' +
     '___children.forEach(function(item) { __children.push(item); });\n' +
